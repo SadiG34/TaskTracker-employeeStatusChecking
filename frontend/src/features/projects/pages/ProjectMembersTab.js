@@ -21,6 +21,12 @@ export const ProjectMembersTab = ({ projectId }) => {
   const [error, setError] = useState(null);
   const queryClient = useQueryClient();
 
+  const { data: organizations, isLoading: isOrgLoading, error: orgError } = useQuery({
+    queryKey: ['organizations'],
+    queryFn: () => api.get('/api/core/organizations/').then((res) => res.data),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: project, isLoading, error: fetchError } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => api.get(`/api/core/projects/${projectId}/`).then(res => res.data),
@@ -60,11 +66,13 @@ export const ProjectMembersTab = ({ projectId }) => {
   const handleRemoveMember = (userId) => {
     removeMemberMutation.mutate(userId);
   };
-  {/* нужно будет делать проверку на админа по другому url */}
 
-  const isAdmin = project?.is_admin || false;
+  const isAdmin = organizations?.some(org =>
+    org.admins.some(admin => admin.id === org.current_user?.id)
+  ) || false;
 
-  if (isLoading) return <CircularProgress />;
+  if (isOrgLoading || isLoading) return <CircularProgress />;
+  if (orgError) return <Alert severity="error">Ошибка загрузки организации: {orgError.message}</Alert>;
   if (fetchError) return <Alert severity="error">Ошибка: {fetchError.message}</Alert>;
   if (!project) return <Alert severity="error">Ошибка: Данные проекта не загружены</Alert>;
 
@@ -82,9 +90,9 @@ export const ProjectMembersTab = ({ projectId }) => {
             <ListItem key={member.id}>
               <ListItemText
                 primary={member.email}
-                secondary={member.id === project?.organization?.admin?.id ? 'Администратор' : 'Участник'}
+                secondary={isAdmin && member.id === project?.organization?.current_user?.id ? 'Администратор' : 'Участник'}
               />
-              {isAdmin && member.id !== project?.organization?.admin?.id && (
+              {isAdmin && member.id !== project?.organization?.current_user?.id && (
                 <ListItemSecondaryAction>
                   <IconButton
                     edge="end"
@@ -102,7 +110,6 @@ export const ProjectMembersTab = ({ projectId }) => {
           <Typography color="text.secondary">Нет участников в проекте</Typography>
         )}
       </List>
-
 
       {isAdmin && (
         <Box sx={{ mt: 3 }}>

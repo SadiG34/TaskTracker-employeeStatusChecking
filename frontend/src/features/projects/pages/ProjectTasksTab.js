@@ -17,7 +17,13 @@ export const ProjectTasksTab = ({ projectId }) => {
   const queryClient = useQueryClient();
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
-  const { data: project, isLoading, error } = useQuery({
+  const { data: organizations, isLoading: isOrgLoading, error: orgError } = useQuery({
+    queryKey: ['organizations'],
+    queryFn: () => api.get('/api/core/organizations/').then((res) => res.data),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: project, isLoading: isProjectLoading, error: projectError } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => api.get(`/api/core/projects/${projectId}/`).then(res => res.data),
   });
@@ -32,11 +38,13 @@ export const ProjectTasksTab = ({ projectId }) => {
     queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
   };
 
-      {/* нужно будет делать проверку на админа по другому url */}
-  const isAdmin = project?.is_admin || false;
+  const isAdmin = organizations?.some(org =>
+    org.admins.some(admin => admin.id === org.current_user?.id)
+  ) || false;
 
-  if (isLoading) return <CircularProgress />;
-  if (error) return <Alert severity="error">Ошибка: {error.message}</Alert>;
+  if (isOrgLoading || isProjectLoading) return <CircularProgress />;
+  if (orgError) return <Alert severity="error">Ошибка загрузки организации: {orgError.message}</Alert>;
+  if (projectError) return <Alert severity="error">Ошибка: {projectError.message}</Alert>;
   if (!project) return <Alert severity="error">Проект не найден</Alert>;
 
   return (

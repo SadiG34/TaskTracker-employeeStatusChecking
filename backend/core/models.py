@@ -5,15 +5,15 @@ User = get_user_model()
 
 class Organization(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    admin = models.ForeignKey(
+    admins = models.ManyToManyField(
         User,
-        on_delete=models.CASCADE,
         related_name='admin_of_organizations'
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.name} (Admin: {self.admin.username})"
+        admin_usernames = ", ".join([admin.username for admin in self.admins.all()])
+        return f"{self.name} (Admins: {admin_usernames})"
 
 
 class Project(models.Model):

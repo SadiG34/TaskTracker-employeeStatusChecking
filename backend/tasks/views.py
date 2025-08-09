@@ -12,7 +12,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         project_id = self.request.query_params.get('project')
         if project_id:
-            if self.request.user == self.request.user.organization.admin:
+            if self.request.user in self.request.user.organization.admins.all():
                 return Task.objects.filter(project_id=project_id)
             return Task.objects.filter(
                 project_id=project_id,
@@ -21,9 +21,9 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Task.objects.none()
 
     def perform_create(self, serializer):
-        if self.request.user != self.request.user.organization.admin:
+        if self.request.user not in self.request.user.organization.admins.all():
             return Response(
-                {"error": "Only the organization admin can create tasks."},
+                {"error": "Only an organization admin can create tasks."},
                 status=status.HTTP_403_FORBIDDEN
             )
         # Automatically assign the task to the creator
