@@ -11,7 +11,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'status', 'organization', 'organization_name', 'password']
         extra_kwargs = {
             'password': {'write_only': True},
-            'status': {'read_only': False},  # Разрешаем изменение статуса
+            'status': {'read_only': False},
             'organization': {'read_only': False}
         }
 

@@ -1,20 +1,18 @@
-from django.db.models import Q
-from rest_framework import filters
-from rest_framework import viewsets, permissions, status
+from django.db import models
+from django.db.models import Q, Case, When, Value, BooleanField
+from rest_framework import filters, viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend
-
+from django.shortcuts import get_object_or_404
 from .models import Organization, Project
 from .serializers import OrganizationSerializer, ProjectSerializer, ProjectDetailSerializer, ProjectTaskSerializer
-from rest_framework.permissions import IsAuthenticated
-
 from users.models import CustomUser
 
 class OrganizationViewSet(viewsets.ModelViewSet):
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
         organization = serializer.save(admin=self.request.user)
@@ -39,11 +37,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if not hasattr(user, 'organization') or not user.organization:
             return Project.objects.none()
 
-        return Project.objects.filter(
-            organization=user.organization
-        ).annotate(
-            is_member=Q(members__id=user.id)
-        ).prefetch_related('members').order_by('-created_at')
+        return (Project.objects.filter(organization=user.organization)
+                .prefetch_related(
+            models.Prefetch('members',
+                            queryset=user.__class__.objects.distinct())
+        )
+                .distinct()
+                .order_by('-created_at'))
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        pk = self.kwargs.get('pk')
+        print(f"Fetching project with pk={pk}")
+        obj = get_object_or_404(queryset, pk=pk)
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def get_serializer_class(self):
         if self.action in ['retrieve', 'tasks']:
@@ -51,6 +59,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return super().get_serializer_class()
 
     def perform_create(self, serializer):
+        if not self.request.user.organization:
+            raise serializers.ValidationError("У пользователя нет организации")
         serializer.save(
             organization=self.request.user.organization,
             created_by=self.request.user
@@ -67,38 +77,31 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project = self.get_object()
         if not self._check_admin_access(project):
             return self._permission_denied()
-
         if request.method == 'POST':
             return self._add_member(project, request.data)
         return self._remove_member(project, request.data)
 
     @action(detail=True, methods=['get'])
     def tasks(self, request, pk=None):
-        """Получение задач проекта с фильтрацией"""
         project = self.get_object()
         tasks = Task.objects.filter(
             project=project,
             project__members=request.user
         ).select_related('assigned_to')
-
         status_filter = request.query_params.get('status')
         if status_filter:
             tasks = tasks.filter(status=status_filter)
-
         priority_filter = request.query_params.get('priority')
         if priority_filter:
             tasks = tasks.filter(priority=priority_filter)
-
         serializer = ProjectTaskSerializer(tasks, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def create_task(self, request, pk=None):
-        """Создание задачи в проекте"""
         project = self.get_object()
         if not project.members.filter(id=request.user.id).exists():
             return self._permission_denied()
-
         serializer = ProjectTaskSerializer(
             data=request.data,
             context={'request': request, 'project': project}
@@ -112,18 +115,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def _add_member(self, project, data):
         email = data.get('email')
+        print(f"Adding member {email} to project {project.id}")
         if not email:
             return Response(
                 {"error": "Укажите email участника"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
         try:
             user = CustomUser.objects.get(
                 email=email,
                 organization=project.organization
             )
             project.members.add(user)
+            print(f"Member {user.email} added to project {project.id}")
             return Response(
                 {"status": f"{user.email} добавлен в проект"},
                 status=status.HTTP_200_OK
@@ -136,15 +140,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def _remove_member(self, project, data):
         user_id = data.get('user_id')
+        print(f"Removing member with ID {user_id} from project {project.id}")
         if not user_id:
             return Response(
                 {"error": "Укажите ID пользователя"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
         try:
             user = project.members.get(id=user_id)
             project.members.remove(user)
+            print(f"Member {user.email} removed from project {project.id}")
             return Response(
                 {"status": f"{user.email} удалён из проекта"},
                 status=status.HTTP_200_OK
