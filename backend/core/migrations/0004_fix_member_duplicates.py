@@ -20,13 +20,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunPython(forward),
-        migrations.AddConstraint(
-            model_name='project',
-            constraint=models.UniqueConstraint(
-                fields=('id',),
-                name='unique_project_id'
-            ),
-        ),
         migrations.AlterUniqueTogether(
             name='project',
             unique_together={('name', 'organization')},
