@@ -22,19 +22,25 @@ export const ProjectsPage = () => {
     queryFn: () => api.get('/api/core/projects/', { params: filters }).then((res) => res.data),
   });
 
+      {/* нужно будет делать проверку на админа по другому url */}
+
+    const isAdmin = projects?.some(project => project.is_admin) || false;
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
       <Typography variant="h4" gutterBottom>
         Проекты организации
       </Typography>
 
-      <Button
-        variant="contained"
-        onClick={() => setIsModalOpen(true)}
-        sx={{ mb: 3 }}
-      >
-        Создать проект
-      </Button>
+      {isAdmin && (
+        <Button
+          variant="contained"
+          onClick={() => setIsModalOpen(true)}
+          sx={{ mb: 3 }}
+        >
+          Создать проект
+        </Button>
+      )}
 
       <ProjectFilters
         filters={filters}
@@ -59,10 +65,12 @@ export const ProjectsPage = () => {
         </Grid>
       )}
 
-      <CreateProjectModal
-        open={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
+      {isAdmin && (
+        <CreateProjectModal
+          open={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+        />
+      )}
     </Container>
   );
 };

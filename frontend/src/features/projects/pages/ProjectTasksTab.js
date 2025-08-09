@@ -7,7 +7,8 @@ import {
   Chip,
   CircularProgress,
   Button,
-  Typography
+  Typography,
+  Alert
 } from '@mui/material';
 import { api } from '../../../services/api';
 import { CreateTaskModal } from '../../tasks/CreateTaskModal';
@@ -16,59 +17,70 @@ export const ProjectTasksTab = ({ projectId }) => {
   const queryClient = useQueryClient();
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
-  const { data: tasks, isLoading, error } = useQuery({
+  const { data: project, isLoading, error } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: () => api.get(`/api/core/projects/${projectId}/`).then(res => res.data),
+  });
+
+  const { data: tasks } = useQuery({
     queryKey: ['tasks', projectId],
     queryFn: () => api.get(`/api/tasks/?project=${projectId}`).then(res => res.data),
+    enabled: !!projectId
   });
 
   const handleTaskCreated = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
   };
 
+      {/* нужно будет делать проверку на админа по другому url */}
+  const isAdmin = project?.is_admin || false;
+
+  if (isLoading) return <CircularProgress />;
+  if (error) return <Alert severity="error">Ошибка: {error.message}</Alert>;
+  if (!project) return <Alert severity="error">Проект не найден</Alert>;
+
   return (
     <>
-      <Button
-        variant="contained"
-        onClick={() => setIsTaskModalOpen(true)}
-        sx={{ mb: 3 }}
-      >
-        Новая задача
-      </Button>
-
-      {isLoading ? (
-        <CircularProgress />
-      ) : error ? (
-        <Typography color="error">Ошибка: {error.message}</Typography>
-      ) : (
-        <List>
-          {tasks?.length === 0 ? (
-            <Typography>Нет доступных задач.</Typography>
-          ) : (
-            tasks.map((task) => (
-              <ListItem key={task.id} divider>
-                <ListItemText
-                  primary={task.title}
-                  secondary={task.description}
-                />
-                <Chip
-                  label={task.priority}
-                  color={
-                    task.priority === 'high' ? 'error' :
-                    task.priority === 'medium' ? 'warning' : 'default'
-                  }
-                />
-              </ListItem>
-            ))
-          )}
-        </List>
+      {isAdmin && (
+        <Button
+          variant="contained"
+          onClick={() => setIsTaskModalOpen(true)}
+          sx={{ mb: 3 }}
+        >
+          Новая задача
+        </Button>
       )}
 
-      <CreateTaskModal
-        open={isTaskModalOpen}
-        onClose={() => setIsTaskModalOpen(false)}
-        projectId={projectId}
-        onTaskCreated={handleTaskCreated}
-      />
+      <List>
+        {tasks?.length === 0 ? (
+          <Typography>Нет доступных задач.</Typography>
+        ) : (
+          tasks?.map((task) => (
+            <ListItem key={task.id} divider>
+              <ListItemText
+                primary={task.title}
+                secondary={task.description}
+              />
+              <Chip
+                label={task.priority}
+                color={
+                  task.priority === 'high' ? 'error' :
+                  task.priority === 'medium' ? 'warning' : 'default'
+                }
+              />
+            </ListItem>
+          ))
+        )}
+      </List>
+
+      {isAdmin && (
+        <CreateTaskModal
+          open={isTaskModalOpen}
+          onClose={() => setIsTaskModalOpen(false)}
+          projectId={projectId}
+          onTaskCreated={handleTaskCreated}
+        />
+      )}
     </>
   );
 };

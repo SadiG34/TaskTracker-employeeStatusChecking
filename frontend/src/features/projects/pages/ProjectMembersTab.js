@@ -60,6 +60,7 @@ export const ProjectMembersTab = ({ projectId }) => {
   const handleRemoveMember = (userId) => {
     removeMemberMutation.mutate(userId);
   };
+  {/* нужно будет делать проверку на админа по другому url */}
 
   const isAdmin = project?.is_admin || false;
 
@@ -75,7 +76,6 @@ export const ProjectMembersTab = ({ projectId }) => {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {/* List of project members */}
       <List>
         {project?.members?.length > 0 ? (
           project.members.map((member) => (
@@ -103,7 +103,7 @@ export const ProjectMembersTab = ({ projectId }) => {
         )}
       </List>
 
-      {/* Add member form (visible only to admin) */}
+
       {isAdmin && (
         <Box sx={{ mt: 3 }}>
           <Typography variant="subtitle1" gutterBottom>
