@@ -8,6 +8,7 @@ import Dashboard from '../features/auth/pages/Dashboard';
 import RegisterByInvitePage from '../features/auth/pages/RegisterByInvitePage';
 import { MainLayout } from '../features/auth/pages/MainLayout';
 import { InvitePage } from '../features/auth/pages/InvitePage';
+import { UsersPage } from '../features/users/pages/UsersPage';
 
 
 export const AppRouter = () => {
@@ -22,6 +23,7 @@ export const AppRouter = () => {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
+        <Route path="/users" element={<UsersPage />} />
         <Route path="/invite" element={<InvitePage />} />
       </Route>
     </Routes>

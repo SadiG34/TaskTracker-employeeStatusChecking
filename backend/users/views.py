@@ -1,7 +1,8 @@
 from django.utils import timezone
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.conf import settings
@@ -19,13 +20,27 @@ from core.models import Organization
 
 logger = logging.getLogger(__name__)
 
-
 def generate_invite_token():
     """Генерация безопасного токена только из букв и цифр"""
     alphabet = string.ascii_letters + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(40))
 
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
+    @action(detail=False, methods=['get'], url_path='organization/(?P<org_id>\d+)')
+    def organization_users(self, request, org_id=None):
+        if not org_id:
+            return Response({"error": "Organization ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+        users = CustomUser.objects.filter(organization_id=org_id)
+        if not users.exists():
+            return Response({"error": "No users found in this organization"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = self.get_serializer(users, many=True)
+        return Response(serializer.data)
+
+    
 class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = UserSerializer
@@ -57,7 +72,6 @@ class RegisterView(generics.CreateAPIView):
             "message": "User registered successfully"
         }, status=status.HTTP_201_CREATED)
 
-
 class InviteEmployeeView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -70,9 +84,9 @@ class InviteEmployeeView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        if user.organization.admin != user:
+        if user not in user.organization.admins.all():
             return Response(
-                {"error": "Только админ организации может приглашать сотрудников"},
+                {"error": "Только администратор организации может приглашать сотрудников"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -95,7 +109,7 @@ class InviteEmployeeView(APIView):
             organization=request.user.organization,
             created_by=request.user,
             token=token,
-            expires_at=timezone.now() + timezone.timedelta(days=7)# дается 7 дней на активацию через инвайт
+            expires_at=timezone.now() + timezone.timedelta(days=7)
         )
 
         try:
@@ -137,7 +151,6 @@ class InviteEmployeeView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-
 class ValidateInviteView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -152,7 +165,6 @@ class ValidateInviteView(APIView):
 
             logger.info(f"Validating token: {token} (original: {raw_token})")
 
-            # Поиск по началу токена для большей надежности
             invite = Invitation.objects.filter(token__startswith=token[:10], is_used=False).first()
 
             if not invite:
@@ -179,7 +191,6 @@ class ValidateInviteView(APIView):
             logger.error(f"Validation error: {str(e)}")
             return Response({"valid": False, "reason": "server_error"}, status=400)
 
-
 class RegisterByInviteView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -200,7 +211,6 @@ class RegisterByInviteView(APIView):
             )
 
         try:
-            # Очистка токена
             clean_token = ''.join(c for c in unquote(token) if c.isalnum())
             invite = Invitation.objects.filter(token__startswith=clean_token[:10], is_used=False).first()
 
@@ -249,7 +259,6 @@ class RegisterByInviteView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-
 class ChangeStatusView(generics.UpdateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = StatusSerializer
@@ -257,7 +266,6 @@ class ChangeStatusView(generics.UpdateAPIView):
 
     def get_object(self):
         return self.request.user
-
 
 class StatusUpdateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -271,7 +279,6 @@ class StatusUpdateView(APIView):
             'new_status': request.user.status,
             'last_status_change': request.user.last_status_change.isoformat()
         })
-
 
 class TeamStatusView(APIView):
     permission_classes = [IsAuthenticated]
@@ -295,7 +302,6 @@ class TeamStatusView(APIView):
         } for user in teammates]
 
         return Response(data)
-
 
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]

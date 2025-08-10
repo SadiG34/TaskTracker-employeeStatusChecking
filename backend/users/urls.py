@@ -1,7 +1,20 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import RegisterView, UserProfileView, ChangeStatusView, InviteEmployeeView, RegisterByInviteView, \
-    TeamStatusView, StatusUpdateView, ValidateInviteView
+from .views import (
+    UserViewSet,
+    RegisterView,
+    InviteEmployeeView,
+    ValidateInviteView,
+    RegisterByInviteView,
+    ChangeStatusView,
+    StatusUpdateView,
+    TeamStatusView,
+    UserProfileView
+)
+
+router = DefaultRouter()
+router.register(r'users', UserViewSet, basename='users')
 
 urlpatterns = [
     path('auth/register/', RegisterView.as_view(), name='register'),
@@ -14,5 +27,8 @@ urlpatterns = [
     path('register-by-invite/', RegisterByInviteView.as_view(), name='register-by-invite'),
     path('team-status/', TeamStatusView.as_view(), name='team-status'),
     path('update-status/', StatusUpdateView.as_view(), name='update-status'),
-
+    path('organization/<int:org_id>/',
+         UserViewSet.as_view({'get': 'organization_users'}),
+         name='organization-users'),
+    path('', include(router.urls)),
 ]

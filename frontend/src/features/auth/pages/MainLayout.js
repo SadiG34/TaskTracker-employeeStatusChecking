@@ -21,6 +21,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import WorkIcon from '@mui/icons-material/Work';
+import PeopleIcon from '@mui/icons-material/People';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import axios from 'axios';
 
@@ -28,7 +29,7 @@ const drawerWidth = 240;
 
 export const MainLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [desktopOpen, setDesktopOpen] = useState(false); // Состояние для десктопного меню
+  const [desktopOpen, setDesktopOpen] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState({
@@ -109,6 +110,7 @@ export const MainLayout = () => {
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Проекты', icon: <WorkIcon />, path: '/projects' },
+    { text: 'Пользователи', icon: <PeopleIcon />, path: '/users' },
     { text: 'Пригласить пользователя', icon: <GroupAddIcon />, path: '/invite' },
   ];
 
@@ -221,7 +223,6 @@ export const MainLayout = () => {
         component="nav"
         sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
       >
-        {/* Мобильное меню (шторка) */}
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -237,7 +238,6 @@ export const MainLayout = () => {
           {drawer}
         </Drawer>
 
-        {/* Десктопное меню (первоначально скрыто) */}
         <Drawer
           variant="permanent"
           sx={{
