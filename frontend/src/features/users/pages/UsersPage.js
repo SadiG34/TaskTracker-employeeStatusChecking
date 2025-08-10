@@ -89,7 +89,7 @@ export const UsersPage = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
-        Пользователи организации: {organization.name}
+         {organization.name}
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}

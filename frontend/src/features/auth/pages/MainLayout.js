@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
 import {
   AppBar,
   Toolbar,
@@ -14,7 +15,12 @@ import {
   Box,
   CssBaseline,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Avatar,
+  Paper,
+  useTheme,
+  Chip,
+  styled,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -23,24 +29,74 @@ import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import WorkIcon from '@mui/icons-material/Work';
 import PeopleIcon from '@mui/icons-material/People';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import axios from 'axios';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+
+const StyledLink = styled(Link)(({ theme }) => ({
+  textDecoration: 'none',
+  color: 'inherit',
+  '&:hover': {
+    textDecoration: 'none',
+  },
+  '&:visited': {
+    color: 'inherit',
+  },
+}));
 
 const drawerWidth = 240;
 
 export const MainLayout = () => {
+  const theme = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [desktopOpen, setDesktopOpen] = useState(false);
+  const [desktopOpen, setDesktopOpen] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState({
     organization: 'Загрузка...',
     username: '',
-    status: ''
+    status: '',
+    email: '',
   });
   const navigate = useNavigate();
   const location = useLocation();
 
   const isAuthenticated = !!localStorage.getItem('access_token');
+
+  const menuItems = [
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: 'Проекты', icon: <WorkIcon />, path: '/projects' },
+    { text: 'Пользователи', icon: <PeopleIcon />, path: '/users' },
+    { text: 'Пригласить', icon: <GroupAddIcon />, path: '/invite' },
+  ];
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
+  const handleDesktopDrawerToggle = () => {
+    setDesktopOpen(!desktopOpen);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await axios.post(
+        'http://localhost:8000/api/users/auth/logout/',
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          },
+        }
+      );
+    } catch (error) {
+      console.error('Ошибка при выходе:', error);
+    } finally {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      navigate('/sign-in', {
+        state: { message: 'Вы успешно вышли из системы' },
+      });
+    }
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -48,8 +104,8 @@ export const MainLayout = () => {
         navigate('/sign-in', {
           state: {
             from: location.pathname,
-            message: 'Требуется авторизация'
-          }
+            message: 'Требуется авторизация',
+          },
         });
         return;
       }
@@ -57,14 +113,15 @@ export const MainLayout = () => {
       try {
         const response = await axios.get('http://localhost:8000/api/users/profile/', {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          },
         });
 
         setUserData({
           organization: response.data.organization || 'Без организации',
           username: response.data.username,
-          status: response.data.status
+          status: response.data.status,
+          email: response.data.email,
         });
       } catch (error) {
         console.error('Ошибка загрузки профиля:', error);
@@ -81,84 +138,135 @@ export const MainLayout = () => {
     checkAuth();
   }, [isAuthenticated, navigate, location]);
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const handleDesktopDrawerToggle = () => {
-    setDesktopOpen(!desktopOpen);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await axios.post('http://localhost:8000/api/users/auth/logout/', {}, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        }
-      });
-    } catch (error) {
-      console.error('Ошибка при выходе:', error);
-    } finally {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      navigate('/sign-in', {
-        state: { message: 'Вы успешно вышли из системы' }
-      });
-    }
-  };
-
-  const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Проекты', icon: <WorkIcon />, path: '/projects' },
-    { text: 'Пользователи', icon: <PeopleIcon />, path: '/users' },
-    { text: 'Пригласить пользователя', icon: <GroupAddIcon />, path: '/invite' },
-  ];
-
   const drawer = (
-    <div>
-      <Box sx={{
+    <Box
+      sx={{
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        p: 2,
-        height: 64
-      }}>
-        <Typography variant="h6" noWrap>
+        flexDirection: 'column',
+        height: '100%',
+        bgcolor: theme.palette.background.paper,
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          p: 2,
+          height: 64,
+          bgcolor: theme.palette.primary.main,
+          color: theme.palette.primary.contrastText,
+        }}
+      >
+        <Typography variant="subtitle1" noWrap>
           {userData.organization}
         </Typography>
-        <IconButton onClick={handleDesktopDrawerToggle}>
+        <IconButton
+          onClick={handleDesktopDrawerToggle}
+          color="inherit"
+          size="small"
+          sx={{ display: { xs: 'none', sm: 'flex' } }}
+        >
           <ChevronLeftIcon />
         </IconButton>
       </Box>
+
       <Divider />
-      <List>
+
+      <List sx={{ flexGrow: 1 }}>
         {menuItems.map((item) => (
           <ListItem
             button
             key={item.text}
-            component={Link}
+            component={StyledLink}
             to={item.path}
             onClick={() => setMobileOpen(false)}
+            sx={{
+              '&.active': {
+                bgcolor: theme.palette.action.selected,
+                borderLeft: `4px solid ${theme.palette.primary.main}`,
+              },
+              '&:hover': {
+                bgcolor: theme.palette.action.hover,
+              },
+              px: 3,
+              py: 1.5,
+            }}
           >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.text} />
+            <ListItemIcon
+              sx={{
+                minWidth: 40,
+                color: location.pathname === item.path ? theme.palette.primary.main : theme.palette.text.secondary,
+              }}
+            >
+              {item.icon}
+            </ListItemIcon>
+            <ListItemText
+              primary={item.text}
+              primaryTypographyProps={{
+                variant: 'body2',
+                fontWeight: location.pathname === item.path ? 'medium' : 'normal',
+              }}
+            />
           </ListItem>
         ))}
       </List>
+
       <Divider />
-      <List>
-        <ListItem>
-          <ListItemText
-            primary={`Пользователь: ${userData.username}`}
-            secondary={`Статус: ${userData.status}`}
+
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          m: 1,
+          borderRadius: 2,
+          bgcolor: theme.palette.grey[100],
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+          <Avatar
+            sx={{
+              width: 40,
+              height: 40,
+              mr: 2,
+              bgcolor: theme.palette.primary.main,
+            }}
+          >
+            {userData.username.charAt(0).toUpperCase()}
+          </Avatar>
+          <Box>
+            <Typography variant="subtitle2" fontWeight="medium">
+              {userData.username}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {userData.email}
+            </Typography>
+          </Box>
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+          <Chip
+            label={userData.status}
+            size="small"
+            sx={{
+              bgcolor: theme.palette.success.light,
+              color: theme.palette.success.dark,
+            }}
           />
-        </ListItem>
-        <ListItem button onClick={handleLogout}>
-          <ListItemIcon><LogoutIcon /></ListItemIcon>
-          <ListItemText primary="Выйти" />
-        </ListItem>
-      </List>
-    </div>
+          <IconButton
+            onClick={handleLogout}
+            size="small"
+            sx={{
+              color: theme.palette.text.secondary,
+              '&:hover': {
+                color: theme.palette.error.main,
+              },
+            }}
+          >
+            <LogoutIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      </Paper>
+    </Box>
   );
 
   if (!isAuthenticated) {
@@ -171,12 +279,14 @@ export const MainLayout = () => {
 
   if (loading) {
     return (
-      <Box sx={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh'
-      }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+        }}
+      >
         <CircularProgress size={60} />
       </Box>
     );
@@ -190,14 +300,14 @@ export const MainLayout = () => {
         sx={{
           width: { sm: `calc(100% - ${desktopOpen ? drawerWidth : 0}px)` },
           ml: { sm: `${desktopOpen ? drawerWidth : 0}px` },
-          transition: theme => theme.transitions.create(['width', 'margin'], {
+          transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
           }),
           ...(desktopOpen && {
             width: { sm: `calc(100% - ${drawerWidth}px)` },
             marginLeft: { sm: `${drawerWidth}px` },
-            transition: theme => theme.transitions.create(['width', 'margin'], {
+            transition: theme.transitions.create(['width', 'margin'], {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,
             }),
@@ -210,18 +320,22 @@ export const MainLayout = () => {
             aria-label="open drawer"
             edge="start"
             onClick={handleDesktopDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'block' } }}
+            sx={{
+              mr: 2,
+              display: { xs: desktopOpen ? 'none' : 'block', sm: desktopOpen ? 'none' : 'block' },
+            }}
           >
-            <MenuIcon />
+            {desktopOpen ? <MenuIcon /> : <ChevronRightIcon />}
           </IconButton>
           <Typography variant="h6" noWrap component="div">
-            {userData.organization}
+            {menuItems.find((item) => item.path === location.pathname)?.text || 'Панель управления'}
           </Typography>
         </Toolbar>
       </AppBar>
+
       <Box
         component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        sx={{ width: { sm: desktopOpen ? drawerWidth : 0 }, flexShrink: { sm: 0 } }}
       >
         <Drawer
           variant="temporary"
@@ -232,7 +346,10 @@ export const MainLayout = () => {
           }}
           sx={{
             display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': {
+              boxSizing: 'border-box',
+              width: drawerWidth,
+            },
           }}
         >
           {drawer}
@@ -246,10 +363,12 @@ export const MainLayout = () => {
               boxSizing: 'border-box',
               width: drawerWidth,
               transform: desktopOpen ? 'translateX(0)' : `translateX(-${drawerWidth}px)`,
-              transition: theme => theme.transitions.create('transform', {
+              transition: theme.transitions.create('transform', {
                 easing: theme.transitions.easing.sharp,
                 duration: theme.transitions.duration.enteringScreen,
               }),
+              borderRight: 'none',
+              boxShadow: theme.shadows[1],
             },
           }}
           open={desktopOpen}
@@ -257,6 +376,7 @@ export const MainLayout = () => {
           {drawer}
         </Drawer>
       </Box>
+
       <Box
         component="main"
         sx={{
@@ -264,27 +384,16 @@ export const MainLayout = () => {
           p: 3,
           width: {
             xs: '100%',
-            sm: `calc(100% - ${desktopOpen ? drawerWidth : 0}px)`
+            sm: `calc(100% - ${desktopOpen ? drawerWidth : 0}px)`,
           },
-          transition: theme => theme.transitions.create('width', {
+          transition: theme.transitions.create('width', {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
-          }),
-          ...(desktopOpen && {
-            width: { sm: `calc(100% - ${drawerWidth}px)` },
-            transition: theme => theme.transitions.create('width', {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.enteringScreen,
-            }),
           }),
         }}
       >
         <Toolbar />
-        {authError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {authError}
-          </Alert>
-        )}
+        {authError && <Alert severity="error" sx={{ mb: 2 }}>{authError}</Alert>}
         <Outlet />
       </Box>
     </Box>
